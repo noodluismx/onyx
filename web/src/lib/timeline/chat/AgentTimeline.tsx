@@ -38,18 +38,22 @@ import { TimelineHeaderRow } from "@/lib/timeline/components/primitives/Timeline
 
 interface TimelineContainerProps {
   agent: FullChatState["agent"];
+  showAgentAvatar: boolean;
   headerContent?: React.ReactNode;
   children?: React.ReactNode;
 }
 
 function TimelineContainer({
   agent,
+  showAgentAvatar,
   headerContent,
   children,
 }: TimelineContainerProps) {
   return (
     <TimelineRoot>
-      <TimelineHeaderRow left={<AgentAvatar agent={agent} size={24} />}>
+      <TimelineHeaderRow
+        left={showAgentAvatar ? <AgentAvatar agent={agent} size={24} /> : null}
+      >
         {headerContent}
       </TimelineHeaderRow>
       {children}
@@ -92,6 +96,8 @@ export interface AgentTimelineProps {
   codeModeWorking?: boolean;
   /** A tool call in the latest turn waits for the user's approval */
   awaitingApproval?: boolean;
+  /** Only a message's first run shows the agent's avatar. */
+  showAgentAvatar?: boolean;
 }
 
 /**
@@ -115,7 +121,8 @@ function areAgentTimelinePropsEqual(
     prev.generatedImageCount === next.generatedImageCount &&
     prev.toolProcessingDuration === next.toolProcessingDuration &&
     prev.codeModeWorking === next.codeModeWorking &&
-    prev.awaitingApproval === next.awaitingApproval
+    prev.awaitingApproval === next.awaitingApproval &&
+    prev.showAgentAvatar === next.showAgentAvatar
   );
 }
 
@@ -134,6 +141,7 @@ export const AgentTimeline = React.memo(function AgentTimeline({
   toolProcessingDuration,
   codeModeWorking = false,
   awaitingApproval = false,
+  showAgentAvatar = true,
 }: AgentTimelineProps) {
   // Header text and state flags
   const { headerText, hasPackets, userStopped } = useTimelineHeader(
@@ -310,6 +318,7 @@ export const AgentTimeline = React.memo(function AgentTimeline({
     return (
       <TimelineContainer
         agent={chatState.agent}
+        showAgentAvatar={showAgentAvatar}
         headerContent={
           <div className="flex w-full h-full items-center ps-(--timeline-header-padding-left) pe-(--timeline-header-padding-right)">
             <TextLoader>{headerText}</TextLoader>
@@ -321,12 +330,18 @@ export const AgentTimeline = React.memo(function AgentTimeline({
 
   // Display content only (no timeline steps)
   if (uiState === TimelineUIState.DISPLAY_CONTENT_ONLY) {
-    return <TimelineContainer agent={chatState.agent} />;
+    return (
+      <TimelineContainer
+        agent={chatState.agent}
+        showAgentAvatar={showAgentAvatar}
+      />
+    );
   }
 
   return (
     <TimelineContainer
       agent={chatState.agent}
+      showAgentAvatar={showAgentAvatar}
       headerContent={
         <div
           className={cn(
