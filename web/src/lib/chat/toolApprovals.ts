@@ -12,7 +12,6 @@ import {
 import { getMultiModelChildren } from "@/app/app/message/multiModel";
 import type { Message } from "@/app/app/types";
 import type { ApprovalStatus } from "@/lib/approvals/types";
-import type { GroupedPacket } from "@/lib/timeline/chat/hooks/packetProcessor";
 import type { ApprovalDecisionResponse } from "@/lib/chat/types";
 
 /** What one response's packets say about an approval request. */
@@ -167,36 +166,6 @@ export function readWaitingToolApprovals(
     }
   }
   return waiting;
-}
-
-type SectionEntry =
-  | { kind: "display"; turnIndex: number; group: GroupedPacket }
-  | { kind: "approval"; turnIndex: number; approval: ToolApproval };
-
-/**
- * Orders approval cards with a section's display groups by turn. A card
- * follows the display groups of its own turn and of every earlier turn.
- */
-export function orderApprovalsByTurn(
-  displayGroups: GroupedPacket[],
-  approvals: ToolApproval[]
-): SectionEntry[] {
-  const entries: SectionEntry[] = displayGroups.map((group) => ({
-    kind: "display",
-    turnIndex: group.turn_index,
-    group,
-  }));
-  for (const approval of approvals) {
-    const index = entries.findIndex(
-      (entry) => entry.turnIndex > approval.turnIndex
-    );
-    entries.splice(index === -1 ? entries.length : index, 0, {
-      kind: "approval",
-      turnIndex: approval.turnIndex,
-      approval,
-    });
-  }
-  return entries;
 }
 
 /** The status the server's answer to this client's decision shows. */

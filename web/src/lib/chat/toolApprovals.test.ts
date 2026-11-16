@@ -7,14 +7,11 @@ import {
 import type { ApprovalDecisionResponse } from "@/lib/chat/types";
 import {
   decidedStatus,
-  orderApprovalsByTurn,
   readToolApprovals,
-  type ToolApproval,
   toolApprovalStatus,
   useToolApprovalUi,
 } from "@/lib/chat/toolApprovals";
 import type { ApprovalStatus } from "@/lib/approvals/types";
-import type { GroupedPacket } from "@/lib/timeline/chat/hooks/packetProcessor";
 
 function request(approvalId: string, agentName: string | null = null): Packet {
   return {
@@ -180,45 +177,5 @@ describe("nudgeApproval", () => {
     jest.advanceTimersByTime(2000);
 
     expect(useToolApprovalUi.getState().nudge).toBeNull();
-  });
-});
-
-describe("orderApprovalsByTurn", () => {
-  function displayGroup(turnIndex: number): GroupedPacket {
-    return {
-      turn_index: turnIndex,
-      tab_index: 0,
-      packets: [],
-      nestedCalls: [],
-      streamPackets: [],
-      codeMode: null,
-    };
-  }
-  function approval(approvalId: string, turnIndex: number): ToolApproval {
-    const { obj } = request(approvalId);
-    if (obj.type !== PacketType.TOOL_APPROVAL_REQUEST)
-      throw new Error("not a request");
-    return { turnIndex, request: obj, status: "pending" };
-  }
-
-  it("places each card after the text of its own and earlier turns", () => {
-    const entries = orderApprovalsByTurn(
-      [displayGroup(0), displayGroup(2), displayGroup(5)],
-      [approval("first", 2), approval("second", 2), approval("third", 3)]
-    );
-
-    expect(
-      entries.map((entry) =>
-        entry.kind === "display"
-          ? `text-${entry.turnIndex}`
-          : entry.approval.request.approval_id
-      )
-    ).toEqual(["text-0", "text-2", "first", "second", "third", "text-5"]);
-  });
-
-  it("places cards before any text when the model wrote none yet", () => {
-    const entries = orderApprovalsByTurn([displayGroup(4)], [approval("a", 1)]);
-
-    expect(entries.map((entry) => entry.kind)).toEqual(["approval", "display"]);
   });
 });
