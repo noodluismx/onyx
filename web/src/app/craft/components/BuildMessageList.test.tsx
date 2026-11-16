@@ -271,9 +271,9 @@ describe("BuildMessageList thinking visibility", () => {
   it("shows restored thought packets as collapsed thinking rows", () => {
     renderList({ messages: [savedAssistantMessage] });
 
-    fireEvent.click(screen.getByRole("button", { name: /Thinking/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Thought/ }));
 
-    expect(screen.getByText("Thinking")).toBeInTheDocument();
+    expect(screen.getByText("Thought")).toBeInTheDocument();
     expect(screen.getByText("Checking the app structure.")).toBeInTheDocument();
     expect(screen.getByText("Final answer")).toBeInTheDocument();
   });
@@ -281,7 +281,7 @@ describe("BuildMessageList thinking visibility", () => {
   it("does not open restored thought packets by default", () => {
     renderList({ messages: [savedAssistantMessage] });
 
-    expect(screen.getByText("Thinking")).toBeInTheDocument();
+    expect(screen.getByText("Thought")).toBeInTheDocument();
     expect(
       screen.queryByText("Checking the app structure.")
     ).not.toBeInTheDocument();
@@ -297,7 +297,7 @@ describe("BuildMessageList thinking visibility", () => {
       ],
     });
 
-    expect(screen.getByText("Thinking")).toBeInTheDocument();
+    expect(screen.getByText("Thought")).toBeInTheDocument();
     expect(
       screen.queryByText("Checking the app structure.")
     ).not.toBeInTheDocument();
@@ -310,7 +310,7 @@ describe("BuildMessageList thinking visibility", () => {
       timelineEvents: [thought("Checking the app structure.")],
     });
 
-    expect(screen.getByText("Thinking...")).toBeInTheDocument();
+    expect(screen.getByText("Thinking")).toBeInTheDocument();
     expect(
       screen.queryByText("Checking the app structure.")
     ).not.toBeInTheDocument();

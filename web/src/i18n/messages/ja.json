@@ -12904,9 +12904,6 @@
         "emptyState": {
           "text": "生成された画像はありません"
         },
-        "failedStatus": {
-          "text": "画像の生成に失敗しました"
-        },
         "generatedStatus": {
           "text": "{count, plural, one {# 枚の画像を生成しました} other {# 枚の画像を生成しました}}"
         },
@@ -13058,6 +13055,9 @@
         "fetch": {
           "reading": {
             "status": "読み取り中"
+          },
+          "read": {
+            "status": "読み込みました"
           }
         },
         "fileReader": {
@@ -13133,7 +13133,9 @@
           },
           "header": {
             "default": "社内ドキュメントを検索中",
+            "doneDefault": "社内ドキュメントを検索しました",
             "sources": "{sources}を検索中",
+            "doneSources": "{sources}を検索しました",
             "sourcesOverflow": "{sources} 他{count}件",
             "withTimeWindow": "{header}({timeWindow})"
           },
@@ -13156,6 +13158,9 @@
           "updating": {
             "status": "メモリを更新中"
           },
+          "updated": {
+            "status": "メモリを更新しました"
+          },
           "viewMemoriesButton": {
             "tooltip": "メモリを表示"
           }
@@ -13169,20 +13174,8 @@
           }
         },
         "python": {
-          "completed": {
-            "status": "Python の実行が完了しました"
-          },
-          "default": {
-            "status": "Python の実行"
-          },
           "error": {
             "label": "エラー:"
-          },
-          "executing": {
-            "status": "Python コードを実行中..."
-          },
-          "failed": {
-            "status": "Python の実行に失敗しました"
           },
           "generatedFiles": {
             "label": "{count, plural, one {# 件のファイルを生成しました} other {# 件のファイルを生成しました}}"
@@ -13192,6 +13185,12 @@
           },
           "output": {
             "label": "出力:"
+          },
+          "running": {
+            "status": "Python を実行中"
+          },
+          "ran": {
+            "status": "Python を実行しました"
           },
           "runningCode": {
             "label": "コードを実行中..."
@@ -13206,6 +13205,9 @@
           },
           "thinking": {
             "status": "思考中"
+          },
+          "thought": {
+            "status": "思考しました"
           }
         },
         "researchAgent": {
@@ -13255,6 +13257,9 @@
         "webSearch": {
           "searching": {
             "status": "ウェブを検索中"
+          },
+          "searched": {
+            "status": "ウェブを検索しました"
           }
         },
         "sandbox": {

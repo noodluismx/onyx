@@ -39,8 +39,8 @@ function CraftTimelineStep({
       title ??
       t(
         payload.isStreaming
-          ? "header.thinkingEllipsis.label"
-          : "header.thinking.label"
+          ? "reasoning.thinking.status"
+          : "reasoning.thought.status"
       );
     return (
       <RunStep
@@ -79,6 +79,7 @@ function CraftTimelineStep({
       position={position}
       icon={getToolCallIcon(toolCall)}
       title={renderToolCallHeader(toolCall)}
+      doneTitle={renderToolCallHeader(toolCall, true)}
       headerAccessory={
         toolCall.skillName && toolCall.toolName !== "skill" ? (
           <SkillBadge name={toolCall.skillName} />
