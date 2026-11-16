@@ -49,8 +49,6 @@ function CraftTimelineStep({
         position={position}
         icon={STEP_ICONS.thinking}
         title={header}
-        toggleLabel={header}
-        noPaddingRight
         body={
           <ThinkingBody
             content={payload.content}
@@ -86,7 +84,6 @@ function CraftTimelineStep({
           <SkillBadge name={toolCall.skillName} />
         ) : undefined
       }
-      toggleLabel={toolCall.title}
       defaultExpanded={defaultExpanded}
       body={hasToolCallBody(toolCall) ? renderToolCallBody(toolCall) : null}
     />
