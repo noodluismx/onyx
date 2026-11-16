@@ -366,7 +366,6 @@ const ChatUI = React.memo(
                 >
                   {(message.type !== "error" || message.packets.length > 0) && (
                     <AgentMessage
-                      fullWidthChat={fullWidthChat}
                       rawPackets={message.packets}
                       packetCount={message.packetCount}
                       restoredPacketCount={message.restoredPacketCount}

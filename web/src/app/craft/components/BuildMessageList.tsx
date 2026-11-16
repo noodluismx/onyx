@@ -6,15 +6,12 @@ import { cn } from "@opal/utils";
 import { CopyButton } from "@opal/components";
 import { Hoverable } from "@opal/core";
 import { SvgAlertCircle } from "@opal/icons";
-import { FoldableLogo } from "@/lib/app/components";
 import SetupCard from "@/app/craft/components/setup-requests/SetupCard";
 import { ExternalAppUserResponse } from "@/app/craft/v1/apps/registry";
 import { errorHandlingFetcher } from "@/lib/fetcher";
 import { SWR_KEYS } from "@/lib/swr-keys";
 import TextChunk from "@/app/craft/components/TextChunk";
 import CraftTimeline from "@/lib/timeline/craft/components/CraftTimeline";
-import { TimelineRoot } from "@/lib/timeline/components/primitives/TimelineRoot";
-import { TimelineHeaderRow } from "@/lib/timeline/components/primitives/TimelineHeaderRow";
 import { BlinkingBar } from "@/app/app/message/BlinkingBar";
 import { ErrorBanner } from "@/app/app/message/Resubmit";
 import { RATE_LIMITED_ERROR_CODE, RateLimitDetails } from "@/app/app/types";
@@ -205,13 +202,53 @@ export default function BuildMessageList({
     );
   };
 
-  // The logo on a header row of its own, for a response that does not start
-  // with a run.
-  const renderLogoHeader = (key: string) => (
-    <TimelineRoot key={key}>
-      <TimelineHeaderRow left={<FoldableLogo onyxBranded folded size={24} />} />
-    </TimelineRoot>
-  );
+  // A message or notice between runs.
+  const renderInlineEntry = (
+    entry: AcpTimelineEntry,
+    topMargin: string,
+    isCurrentStream: boolean
+  ) => {
+    switch (entry.payload.kind) {
+      case "message":
+        return (
+          <div key={entry.id} className={cn(topMargin)}>
+            <TextChunk
+              sessionId={sessionId}
+              content={entry.payload.content
+                .map((part) => (part.type === "text" ? part.text : ""))
+                .join("")}
+              isStreaming={isCurrentStream && entry.status === "streaming"}
+              onFileOpen={onFileOpen}
+            />
+          </div>
+        );
+      case "notice": {
+        const { notice } = entry.payload;
+        switch (notice.type) {
+          case "connect_app_request":
+            return renderConnectCard(
+              entry.id,
+              topMargin,
+              notice.requestId,
+              notice.externalAppId,
+              notice.reason
+            );
+          case "compaction":
+            return renderCompaction(entry.id, topMargin, notice.summary);
+          case "error":
+            return renderError(
+              entry.id,
+              topMargin,
+              notice.message || "Turn failed.",
+              notice.rateLimit
+            );
+        }
+        return null;
+      }
+      default:
+        return null;
+    }
+  };
 
   /**
    * Renders the in-progress turn from the timeline reducer: runs of thinking
@@ -238,9 +275,6 @@ export default function BuildMessageList({
     }
 
     const todo = planToTodoList(state.plan, opts.isCurrentStream);
-    // As in chat, the first run's header carries the logo. Anything else
-    // first gets a header row of its own.
-    const logoOnRun = blocks[0]?.kind === "steps" && !todo;
 
     const nodes = blocks.map((block, idx) => {
       if (block.kind === "steps") {
@@ -253,60 +287,21 @@ export default function BuildMessageList({
             key={block.id}
             entries={block.entries}
             autoCollapse={followedByMessage}
-            showAgentAvatar={logoOnRun && idx === 0}
           />
         );
       }
 
-      const topMargin = cn(blocks[idx - 1]?.kind === "steps" && "mt-3", "px-3");
+      const topMargin = cn(blocks[idx - 1]?.kind === "steps" && "mt-3");
       const { entry } = block;
-      switch (entry.payload.kind) {
-        case "message":
-          return (
-            <div key={entry.id} className={cn(topMargin)}>
-              <TextChunk
-                sessionId={sessionId}
-                content={entry.payload.content
-                  .map((part) => (part.type === "text" ? part.text : ""))
-                  .join("")}
-                isStreaming={
-                  opts.isCurrentStream && entry.status === "streaming"
-                }
-                onFileOpen={onFileOpen}
-              />
-            </div>
-          );
-        case "notice": {
-          const { notice } = entry.payload;
-          switch (notice.type) {
-            case "connect_app_request":
-              return renderConnectCard(
-                entry.id,
-                topMargin,
-                notice.requestId,
-                notice.externalAppId,
-                notice.reason
-              );
-            case "compaction":
-              return renderCompaction(entry.id, topMargin, notice.summary);
-            case "error":
-              return renderError(
-                entry.id,
-                topMargin,
-                notice.message || "Turn failed.",
-                notice.rateLimit
-              );
-          }
-          return null;
-        }
-        default:
-          return null;
-      }
+      return (
+        <div key={entry.id}>
+          {renderInlineEntry(entry, topMargin, opts.isCurrentStream)}
+        </div>
+      );
     });
 
     return {
       nodes: [
-        ...(logoOnRun ? [] : [renderLogoHeader("agent-header")]),
         ...(todo
           ? [
               <div key="plan">
@@ -359,24 +354,21 @@ export default function BuildMessageList({
             {visibleSavedRender ? (
               visibleSavedRender.nodes
             ) : (
-              <>
-                {renderLogoHeader("agent-header")}
-                <div className="px-3">
-                  <TextChunk
-                    sessionId={sessionId}
-                    content={message.content}
-                    onFileOpen={onFileOpen}
-                  />
-                </div>
-              </>
+              <div>
+                <TextChunk
+                  sessionId={sessionId}
+                  content={message.content}
+                  onFileOpen={onFileOpen}
+                />
+              </div>
             )}
             {finalizing && (
-              <div className="px-3">
+              <div>
                 <BlinkingBar />
               </div>
             )}
             {message.content.trim() && (
-              <div className="px-3">
+              <div>
                 <Hoverable.Item
                   group="craftAgentMessage"
                   variant="appear-on-hover"
@@ -394,18 +386,20 @@ export default function BuildMessageList({
             )}
           </div>
         </Hoverable.Root>
-        <div className="flex min-w-0 flex-col gap-2 px-3">
-          {outputs &&
-            onOutputOpen &&
-            onTurnOutputsOpen &&
-            turnIndex !== undefined && (
-              <TurnOutputCards
-                outputs={outputs}
-                onOpen={onOutputOpen}
-                onShowAll={() => onTurnOutputsOpen(turnIndex)}
-              />
-            )}
-          {trailing}
+        <div>
+          <div className="flex min-w-0 flex-col gap-2">
+            {outputs &&
+              onOutputOpen &&
+              onTurnOutputsOpen &&
+              turnIndex !== undefined && (
+                <TurnOutputCards
+                  outputs={outputs}
+                  onOpen={onOutputOpen}
+                  onShowAll={() => onTurnOutputsOpen(turnIndex)}
+                />
+              )}
+            {trailing}
+          </div>
         </div>
       </div>
     );
@@ -455,9 +449,8 @@ export default function BuildMessageList({
                   onOutputOpen &&
                   onTurnOutputsOpen &&
                   turnIndex !== undefined && (
-                    <div className="flex flex-col gap-2 py-4">
-                      {renderLogoHeader("agent-header")}
-                      <div className="min-w-0 px-3">
+                    <div className="py-4">
+                      <div>
                         <TurnOutputCards
                           outputs={outputs}
                           onOpen={onOutputOpen}
@@ -489,12 +482,12 @@ export default function BuildMessageList({
             data-testid="craft-assistant-message"
             aria-busy={isStreaming}
           >
-            {streamRender
-              ? streamRender.nodes
-              : renderLogoHeader("agent-header")}
+            {streamRender?.nodes}
             {showStreamCursor && (
-              <div className="h-9 flex items-center px-3">
-                <BlinkingBar />
+              <div>
+                <div className="h-9 flex items-center">
+                  <BlinkingBar />
+                </div>
               </div>
             )}
             {trailingAssistantSlot}
