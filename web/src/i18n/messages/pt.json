@@ -13052,9 +13052,6 @@
             "status": "Gerando plano"
           }
         },
-        "doneStep": {
-          "header": "Concluído"
-        },
         "expandButton": {
           "ariaLabel": "Expandir a linha do tempo"
         },
@@ -13229,9 +13226,6 @@
         },
         "stepsButton": {
           "label": "{count, plural, one {# etapa} other {# etapas}}"
-        },
-        "stoppedStep": {
-          "header": "Interrompido"
         },
         "thoughtDuration": {
           "label": "Pensou por {duration}"

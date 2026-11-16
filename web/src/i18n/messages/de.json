@@ -13052,9 +13052,6 @@
             "status": "Erstellt Plan"
           }
         },
-        "doneStep": {
-          "header": "Fertig"
-        },
         "expandButton": {
           "ariaLabel": "Zeitleiste ausklappen"
         },
@@ -13229,9 +13226,6 @@
         },
         "stepsButton": {
           "label": "{count, plural, one {# Schritt} other {# Schritte}}"
-        },
-        "stoppedStep": {
-          "header": "Gestoppt"
         },
         "thoughtDuration": {
           "label": "Hat {duration} nachgedacht"

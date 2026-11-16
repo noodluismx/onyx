@@ -13052,9 +13052,6 @@
             "status": "جارٍ توليد الخطة"
           }
         },
-        "doneStep": {
-          "header": "تم"
-        },
         "expandButton": {
           "ariaLabel": "توسيع الخط الزمني"
         },
@@ -13229,9 +13226,6 @@
         },
         "stepsButton": {
           "label": "{count, plural, one {خطوة واحدة} other {# خطوات}}"
-        },
-        "stoppedStep": {
-          "header": "توقف"
         },
         "thoughtDuration": {
           "label": "فكّر لمدة {duration}"
