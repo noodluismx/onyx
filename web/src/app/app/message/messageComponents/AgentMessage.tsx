@@ -38,7 +38,10 @@ import { LlmDescriptor, LlmManager } from "@/lib/hooks";
 import { Message } from "@/app/app/types";
 import { Text } from "@opal/components";
 import { AgentTimeline } from "@/lib/timeline/chat/AgentTimeline";
-import { AnswerText } from "@/lib/timeline/components/AnswerText";
+import {
+  Response,
+  type ResponseItem,
+} from "@/lib/timeline/components/Response";
 import { useVoiceMode } from "@/providers/VoiceModeProvider";
 import { getTextContent } from "@/app/app/services/packetUtils";
 import { removeThinkingTokens } from "@/app/app/services/thinkingTokens";
@@ -456,6 +459,38 @@ const AgentMessage = React.memo(function AgentMessage({
     };
   }, [nodeId, resetTTS]);
 
+  // The last section's closing line when the user stopped it or it timed out.
+  const statusLines = (isLastSection: boolean): ResponseItem[] => {
+    if (!isLastSection) return [];
+    const lines: ResponseItem[] = [];
+    if (
+      sections.at(-1)!.displayGroups.length === 0 &&
+      stopReason === StopReason.USER_CANCELLED
+    ) {
+      lines.push({
+        kind: "text",
+        key: "stopped",
+        node: (
+          <Text as="p" font="secondary-body" color="text-04">
+            {t("agentMessage.stoppedGeneration.text")}
+          </Text>
+        ),
+      });
+    }
+    if (stopPacketSeen && stopReason === StopReason.TIMED_OUT) {
+      lines.push({
+        kind: "text",
+        key: "timed-out",
+        node: (
+          <Text as="p" font="secondary-body" color="text-04">
+            {t("agentMessage.timedOut.text")}
+          </Text>
+        ),
+      });
+    }
+    return lines;
+  };
+
   // Copy joins the text blocks of every section, in order.
   let nextAnswerRef = 0;
 
@@ -477,139 +512,146 @@ const AgentMessage = React.memo(function AgentMessage({
               </Section>
             )}
 
-            {buildSectionSegments(section, toolTurnGroups).map(
-              (segment, index, segments) => {
-                switch (segment.kind) {
-                  case "text": {
-                    const textIndex = nextAnswerRef++;
-                    const { group } = segment;
-                    return (
-                      <AnswerText key={`text-${segment.key}`}>
-                        <div
-                          ref={(element) => {
-                            answerRefs.current[textIndex] = element;
-                          }}
-                          className="overflow-x-visible focus:outline-hidden select-text cursor-text"
-                          onCopy={(e) => {
-                            handleCopy(e, { current: e.currentTarget });
-                          }}
-                        >
-                          <RendererComponent
-                            packets={group.packets}
-                            nestedCalls={group.nestedCalls}
-                            streamPackets={group.streamPackets}
-                            chatState={effectiveChatState}
-                            messageNodeId={nodeId}
-                            hasTimelineThinking={section.toolGroups.length > 0}
-                            onComplete={() => {
-                              // The hook checks finalAnswerComing itself.
-                              if (group === lastAnswerGroup) onRenderComplete();
-                            }}
-                            restoredTextLength={visibleGroups.get(segment.key)}
-                            animate={!stopPacketSeen && isLastSection}
-                            stopPacketSeen={stopPacketSeen}
-                            stopReason={stopReason}
-                          >
-                            {(results) => (
-                              <>
-                                {results.map((r, i) => (
-                                  <div key={i}>{r.content}</div>
-                                ))}
-                              </>
-                            )}
-                          </RendererComponent>
-                        </div>
-                      </AnswerText>
-                    );
-                  }
-                  case "approval":
-                    return (
-                      <div key={segment.approval.request.approval_id}>
-                        <ToolApprovalCard approval={segment.approval} />
-                      </div>
-                    );
-                  case "extras":
-                    return (
-                      <div key="extras">
-                        <div className="flex flex-col gap-3">
-                          {/* Generated images lead the answer. */}
-                          {section.images.length > 0 && (
-                            <GeneratedImageGrid images={section.images} />
-                          )}
-                          {section.authErrors.map((authError, i) => (
-                            <CustomToolAuthCard
-                              key={`auth-error-${i}`}
-                              toolName={authError.toolName}
-                              toolId={authError.toolId}
-                              tools={effectiveChatState.agent.tools}
-                              agentId={effectiveChatState.agent.id}
+            <Response
+              items={[
+                ...buildSectionSegments(section, toolTurnGroups).map(
+                  (segment, index, segments): ResponseItem => {
+                    switch (segment.kind) {
+                      case "text": {
+                        const textIndex = nextAnswerRef++;
+                        const { group } = segment;
+                        return {
+                          kind: "text",
+                          key: `text-${segment.key}`,
+                          node: (
+                            <div
+                              ref={(element) => {
+                                answerRefs.current[textIndex] = element;
+                              }}
+                              className="overflow-x-visible focus:outline-hidden select-text cursor-text"
+                              onCopy={(e) => {
+                                handleCopy(e, { current: e.currentTarget });
+                              }}
+                            >
+                              <RendererComponent
+                                packets={group.packets}
+                                nestedCalls={group.nestedCalls}
+                                streamPackets={group.streamPackets}
+                                chatState={effectiveChatState}
+                                messageNodeId={nodeId}
+                                hasTimelineThinking={
+                                  section.toolGroups.length > 0
+                                }
+                                onComplete={() => {
+                                  // The hook checks finalAnswerComing itself.
+                                  if (group === lastAnswerGroup)
+                                    onRenderComplete();
+                                }}
+                                restoredTextLength={visibleGroups.get(
+                                  segment.key
+                                )}
+                                animate={!stopPacketSeen && isLastSection}
+                                stopPacketSeen={stopPacketSeen}
+                                stopReason={stopReason}
+                              >
+                                {(results) => (
+                                  <>
+                                    {results.map((r, i) => (
+                                      <div key={i}>{r.content}</div>
+                                    ))}
+                                  </>
+                                )}
+                              </RendererComponent>
+                            </div>
+                          ),
+                        };
+                      }
+                      case "approval":
+                        return {
+                          kind: "card",
+                          key: segment.approval.request.approval_id,
+                          node: (
+                            <ToolApprovalCard approval={segment.approval} />
+                          ),
+                        };
+                      case "extras":
+                        return {
+                          kind: "card",
+                          key: "extras",
+                          node: (
+                            <div className="flex flex-col gap-3">
+                              {/* Generated images lead the answer. */}
+                              {section.images.length > 0 && (
+                                <GeneratedImageGrid images={section.images} />
+                              )}
+                              {section.authErrors.map((authError, i) => (
+                                <CustomToolAuthCard
+                                  key={`auth-error-${i}`}
+                                  toolName={authError.toolName}
+                                  toolId={authError.toolId}
+                                  tools={effectiveChatState.agent.tools}
+                                  agentId={effectiveChatState.agent.id}
+                                />
+                              ))}
+                            </div>
+                          ),
+                        };
+                      case "run": {
+                        const isLiveRun =
+                          segments.findLastIndex((s) => s.kind === "run") ===
+                          index;
+                        if (!isLiveRun) {
+                          // A run that text follows has settled.
+                          return {
+                            kind: "run",
+                            key: `run-${segment.key}`,
+                            node: (
+                              <AgentTimeline
+                                turnGroups={segment.turnGroups}
+                                chatState={effectiveChatState}
+                                stopPacketSeen
+                                hasDisplayContent
+                                finalAnswerComing
+                              />
+                            ),
+                          };
+                        }
+                        return {
+                          kind: "run",
+                          key: `run-${segment.key}`,
+                          node: (
+                            <AgentTimeline
+                              turnGroups={segment.turnGroups}
+                              chatState={effectiveChatState}
+                              stopPacketSeen={stopPacketSeen || !isLastSection}
+                              stopReason={
+                                isLastSection ? stopReason : undefined
+                              }
+                              hasDisplayContent={segments
+                                .slice(index + 1)
+                                .some((s) => s.kind === "text")}
+                              processingDurationSeconds={
+                                processingDurationSeconds
+                              }
+                              generatedImageCount={section.images.length}
+                              finalAnswerComing={
+                                !isLastSection || pacedFinalAnswerComing
+                              }
+                              toolProcessingDuration={toolProcessingDuration}
+                              codeModeWorking={isLastSection && codeModeWorking}
+                              awaitingApproval={
+                                isLastSection && toolApprovals.awaitingApproval
+                              }
                             />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  case "run": {
-                    const isLiveRun =
-                      segments.findLastIndex((s) => s.kind === "run") === index;
-                    if (!isLiveRun) {
-                      // A run that text follows has settled.
-                      return (
-                        <AgentTimeline
-                          key={`run-${segment.key}`}
-                          turnGroups={segment.turnGroups}
-                          chatState={effectiveChatState}
-                          stopPacketSeen
-                          hasDisplayContent
-                          finalAnswerComing
-                        />
-                      );
+                          ),
+                        };
+                      }
                     }
-                    return (
-                      <AgentTimeline
-                        key={`run-${segment.key}`}
-                        turnGroups={segment.turnGroups}
-                        chatState={effectiveChatState}
-                        stopPacketSeen={stopPacketSeen || !isLastSection}
-                        stopReason={isLastSection ? stopReason : undefined}
-                        hasDisplayContent={segments
-                          .slice(index + 1)
-                          .some((s) => s.kind === "text")}
-                        processingDurationSeconds={processingDurationSeconds}
-                        generatedImageCount={section.images.length}
-                        finalAnswerComing={
-                          !isLastSection || pacedFinalAnswerComing
-                        }
-                        toolProcessingDuration={toolProcessingDuration}
-                        codeModeWorking={isLastSection && codeModeWorking}
-                        awaitingApproval={
-                          isLastSection && toolApprovals.awaitingApproval
-                        }
-                      />
-                    );
                   }
-                }
-              }
-            )}
-
-            {/* Show stopped message when user cancelled and no display content */}
-            {isLastSection &&
-              section.displayGroups.length === 0 &&
-              stopReason === StopReason.USER_CANCELLED && (
-                <AnswerText>
-                  <Text as="p" font="secondary-body" color="text-04">
-                    {t("agentMessage.stoppedGeneration.text")}
-                  </Text>
-                </AnswerText>
-              )}
-            {isLastSection &&
-              stopPacketSeen &&
-              stopReason === StopReason.TIMED_OUT && (
-                <AnswerText>
-                  <Text as="p" font="secondary-body" color="text-04">
-                    {t("agentMessage.timedOut.text")}
-                  </Text>
-                </AnswerText>
-              )}
+                ),
+                ...statusLines(isLastSection),
+              ]}
+            />
           </React.Fragment>
         );
       })}
