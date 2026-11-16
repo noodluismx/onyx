@@ -12,6 +12,7 @@ import { errorHandlingFetcher } from "@/lib/fetcher";
 import { SWR_KEYS } from "@/lib/swr-keys";
 import TextChunk from "@/app/craft/components/TextChunk";
 import CraftTimeline from "@/lib/timeline/craft/components/CraftTimeline";
+import { AnswerText } from "@/lib/timeline/components/AnswerText";
 import { BlinkingBar } from "@/app/app/message/BlinkingBar";
 import { ErrorBanner } from "@/app/app/message/Resubmit";
 import { RATE_LIMITED_ERROR_CODE, RateLimitDetails } from "@/app/app/types";
@@ -212,14 +213,16 @@ export default function BuildMessageList({
       case "message":
         return (
           <div key={entry.id} className={cn(topMargin)}>
-            <TextChunk
-              sessionId={sessionId}
-              content={entry.payload.content
-                .map((part) => (part.type === "text" ? part.text : ""))
-                .join("")}
-              isStreaming={isCurrentStream && entry.status === "streaming"}
-              onFileOpen={onFileOpen}
-            />
+            <AnswerText>
+              <TextChunk
+                sessionId={sessionId}
+                content={entry.payload.content
+                  .map((part) => (part.type === "text" ? part.text : ""))
+                  .join("")}
+                isStreaming={isCurrentStream && entry.status === "streaming"}
+                onFileOpen={onFileOpen}
+              />
+            </AnswerText>
           </div>
         );
       case "notice": {
@@ -354,21 +357,21 @@ export default function BuildMessageList({
             {visibleSavedRender ? (
               visibleSavedRender.nodes
             ) : (
-              <div>
+              <AnswerText>
                 <TextChunk
                   sessionId={sessionId}
                   content={message.content}
                   onFileOpen={onFileOpen}
                 />
-              </div>
+              </AnswerText>
             )}
             {finalizing && (
-              <div>
+              <AnswerText>
                 <BlinkingBar />
-              </div>
+              </AnswerText>
             )}
             {message.content.trim() && (
-              <div>
+              <AnswerText>
                 <Hoverable.Item
                   group="craftAgentMessage"
                   variant="appear-on-hover"
@@ -382,7 +385,7 @@ export default function BuildMessageList({
                     data-testid="CraftAgentMessage/copy-button"
                   />
                 </Hoverable.Item>
-              </div>
+              </AnswerText>
             )}
           </div>
         </Hoverable.Root>
@@ -484,11 +487,11 @@ export default function BuildMessageList({
           >
             {streamRender?.nodes}
             {showStreamCursor && (
-              <div>
+              <AnswerText>
                 <div className="h-9 flex items-center">
                   <BlinkingBar />
                 </div>
-              </div>
+              </AnswerText>
             )}
             {trailingAssistantSlot}
           </div>
