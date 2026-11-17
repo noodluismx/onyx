@@ -80,6 +80,10 @@ def _whats(source: str) -> list[str]:
             "from onyx.redis import tenant_redis_client",
             ["import of module `onyx.redis.tenant_redis_client`"],
         ),
+        (
+            "from ...redis.redis_pool import get_redis_client\nr = get_redis_client()\n",
+            ["import of `get_redis_client`", "call of `get_redis_client`"],
+        ),
         ("sha = r.register_script(SCRIPT)", ["Lua script call `register_script`"]),
         ("r.evalsha(sha, 1, key)", ["Lua script call `evalsha`"]),
     ],
@@ -99,6 +103,8 @@ def test_direct_uses_are_found(source: str, expected: list[str]) -> None:
         "from onyx.redis.redis_pool import retrieve_auth_token_data_from_redis",
         "from onyx.configs.app_configs import REDIS_HOST",
         "from onyx.background.celery.celery_redis import celery_get_broker_client",
+        "from .models import RedisSettings",
+        "from . import redis_helpers",
         # Another library's `eval`.
         "model.eval()",
         'df.eval("a + b")',
@@ -155,13 +161,16 @@ def test_scan_skips_allowed_locations_and_clean_files(tmp_path: Path) -> None:
     _write(tmp_path, "backend/onyx/cache/redis_backend.py", _DIRECT)
     _write(tmp_path, "backend/onyx/server/clean.py", "x = 1\n")
     _write(tmp_path, "backend/onyx/server/dirty.py", _DIRECT)
+    # No lowercase `redis` in the source.
+    _write(tmp_path, "backend/onyx/server/upper.py", "p = pool.RedisPool()\n")
     _write(tmp_path, "backend/tests/unit/test_x.py", _DIRECT)
 
     found, unparsed = check_no_direct_redis.scan_tree(tmp_path)
 
     assert unparsed == []
     assert {path: len(uses) for path, uses in found.items()} == {
-        "backend/onyx/server/dirty.py": 2
+        "backend/onyx/server/dirty.py": 2,
+        "backend/onyx/server/upper.py": 1,
     }
 
 

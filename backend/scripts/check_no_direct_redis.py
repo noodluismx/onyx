@@ -73,7 +73,7 @@ _LUA_METHODS = frozenset({"register_script", "script_load", "evalsha"})
 # TenantRedisClient. Any other call shape is another library's `eval`.
 _LUA_EVAL_MIN_ARGS = 2
 _LUA_EVAL_KEYWORDS = frozenset({"keys", "args", "numkeys"})
-_SOURCE_TOKENS = ("redis", "eval", "script")
+_SOURCE_TOKENS = ("redis", "Redis", "eval", "script")
 
 _BASELINE_HEADER = """\
 # Direct uses of Redis in application code, as `<count> <path>` lines.
@@ -104,6 +104,16 @@ def _is_onyx_redis(module: str) -> bool:
     return module == _ONYX_REDIS_MODULE or module.startswith(_ONYX_REDIS_MODULE + ".")
 
 
+def _absolute_module(module: str, level: int) -> str:
+    """A relative import that names a `redis` package means `onyx.redis`.
+
+    `from ...redis.redis_pool import x` becomes `onyx.redis.redis_pool`."""
+    parts = module.split(".")
+    if level and "redis" in parts:
+        return ".".join(["onyx", *parts[parts.index("redis") :]])
+    return module if not level else ""
+
+
 def _holds_accessors(module: str) -> bool:
     """`import onyx.redis` and `import onyx.redis.<client module>` bind the accessors."""
     return module == _ONYX_REDIS_MODULE or module.split(".")[-1] in _CLIENT_MODULES
@@ -122,9 +132,10 @@ def _imports(tree: ast.AST) -> Iterator[tuple[int, str, str | None, str]]:
             for alias in node.names:
                 local = alias.asname or alias.name.split(".")[0]
                 yield alias.lineno, alias.name, None, local
-        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            module = _absolute_module(node.module, node.level)
             for alias in node.names:
-                yield alias.lineno, node.module, alias.name, alias.asname or alias.name
+                yield alias.lineno, module, alias.name, alias.asname or alias.name
 
 
 def find_direct_redis_uses(source: str) -> list[Use]:

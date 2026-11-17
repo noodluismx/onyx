@@ -340,18 +340,15 @@ repos:
         stages: [pre-commit]
         files: ^backend/alembic/versions/.*\.py$
       # Lower the baseline with `check_no_direct_redis.py --write-baseline`.
+      # Runs on every commit so the deletion of a baseline file fails in the same PR.
       - id: no-direct-redis
         name: no direct Redis
         description: "Fail on a new direct use of Redis in application code; use CacheBackend"
         language: system
         entry: python3 backend/scripts/check_no_direct_redis.py
         pass_filenames: false
+        always_run: true
         stages: [pre-commit]
-        files: >-
-          (?x)^(
-            backend/(onyx|ee|shared_configs|model_server)/.*\.py
-            |backend/scripts/(check_no_direct_redis\.py|no_direct_redis_baseline\.txt)
-          )$
       # Runs on every commit so a rename or deletion of a file the map cites
       # fails in the same PR.
       - id: feature-map-integrity
