@@ -27,8 +27,8 @@ tests. Additive to the root `AGENTS.md`.
   PostgreSQL as its cache (`CACHE_BACKEND=postgres`, for example Onyx Lite), so direct Redis
   code breaks those deployments. If `CacheBackend` does not have an operation you need, add it
   to the interface with both the Redis and PostgreSQL implementations.
-  `scripts/check_no_direct_redis.py` enforces this on commit: it fails when a file gains a
-  direct use of Redis above the count in `scripts/no_direct_redis_baseline.txt`. Do not raise a
+  `lint/check_no_direct_redis.py` enforces this on commit: it fails when a file gains a
+  direct use of Redis above the count in `lint/no_direct_redis_baseline.txt`. Do not raise a
   count. `# no-direct-redis: allow <reason>` on the line marks a deliberate exception. After you
   move code to `CacheBackend`, run the script with `--write-baseline` to lower the counts.
 - Do not use functions as constants. A value that depends only on startup configuration (env

@@ -2,7 +2,7 @@
 # The rule is in backend/AGENTS.md ("Key Rules"): use CacheBackend.
 # Do not edit by hand, and do not raise a count. After you move code to
 # CacheBackend, lower the counts with:
-#   python3 backend/scripts/check_no_direct_redis.py --write-baseline
+#   python3 backend/lint/check_no_direct_redis.py --write-baseline
 4 backend/ee/onyx/background/celery/tasks/cloud/tasks.py
 3 backend/ee/onyx/background/celery/tasks/doc_permission_syncing/tasks.py
 3 backend/ee/onyx/background/celery/tasks/external_group_syncing/tasks.py

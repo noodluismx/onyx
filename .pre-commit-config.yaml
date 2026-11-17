@@ -345,7 +345,7 @@ repos:
         name: no direct Redis
         description: "Fail on a new direct use of Redis in application code; use CacheBackend"
         language: system
-        entry: python3 backend/scripts/check_no_direct_redis.py
+        entry: python3 backend/lint/check_no_direct_redis.py
         pass_filenames: false
         always_run: true
         stages: [pre-commit]

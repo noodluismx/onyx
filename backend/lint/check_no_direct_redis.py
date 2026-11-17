@@ -13,9 +13,9 @@ A direct use is one of:
   * a Lua script call: `register_script`, `script_load`, `evalsha`, `eval`
 
 Usage, from the repo root:
-    python3 backend/scripts/check_no_direct_redis.py                  # check the tree
-    python3 backend/scripts/check_no_direct_redis.py --list           # print each use
-    python3 backend/scripts/check_no_direct_redis.py --write-baseline # after a migration
+    python3 backend/lint/check_no_direct_redis.py                  # check the tree
+    python3 backend/lint/check_no_direct_redis.py --list           # print each use
+    python3 backend/lint/check_no_direct_redis.py --write-baseline # after a migration
 """
 
 import argparse
@@ -27,7 +27,7 @@ from typing import NamedTuple
 ALLOW_MARKER = "no-direct-redis: allow"
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = _BACKEND_DIR.parent
-BASELINE_PATH = _BACKEND_DIR / "scripts" / "no_direct_redis_baseline.txt"
+BASELINE_PATH = _BACKEND_DIR / "lint" / "no_direct_redis_baseline.txt"
 
 # Application code. Tests and operator scripts may talk to Redis.
 SCANNED_DIRS = (
@@ -80,7 +80,7 @@ _BASELINE_HEADER = """\
 # The rule is in backend/AGENTS.md ("Key Rules"): use CacheBackend.
 # Do not edit by hand, and do not raise a count. After you move code to
 # CacheBackend, lower the counts with:
-#   python3 backend/scripts/check_no_direct_redis.py --write-baseline
+#   python3 backend/lint/check_no_direct_redis.py --write-baseline
 """
 
 _FIX_MESSAGE = f"""\
@@ -300,7 +300,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if stale:
         print("The direct Redis baseline is out of date. Lower it with:")
-        print("  python3 backend/scripts/check_no_direct_redis.py --write-baseline")
+        print("  python3 backend/lint/check_no_direct_redis.py --write-baseline")
         print("\n".join(f"  {row}" for row in stale))
         return 1
     return 0

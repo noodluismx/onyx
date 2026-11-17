@@ -5,8 +5,8 @@ file's count rises above the committed baseline."""
 from pathlib import Path
 
 import pytest
-from scripts import check_no_direct_redis
-from scripts.check_no_direct_redis import Use
+from lint import check_no_direct_redis
+from lint.check_no_direct_redis import Use
 
 
 def _whats(source: str) -> list[str]:
