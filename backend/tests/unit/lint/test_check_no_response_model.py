@@ -23,6 +23,7 @@ _HANDLER = "def handler() -> Model:\n    return Model()\n"
         '@app.get("/health", response_model=StatusResponse)',
         '@router.get("/x", response_model=Model)  # no-response-model: allow',
         '@router.get("/x", response_model=Model)  # no-response-model: allow -',
+        '@router.get("/x", response_model=Model, description="no-response-model: allow legacy shape")',
     ],
 )
 def test_response_model_on_a_route_decorator_is_flagged(decorator: str) -> None:
@@ -116,9 +117,17 @@ def root(tmp_path: Path) -> Path:
     """A repo root with one clean route file and one file with two uses."""
     server = tmp_path / "backend" / "onyx" / "server"
     server.mkdir(parents=True)
-    (server / "ok.py").write_text(_GOOD)
-    (server / "legacy.py").write_text(_BAD + _BAD)
+    (server / "ok.py").write_text(_GOOD, encoding="utf-8")
+    (server / "legacy.py").write_text(_BAD + _BAD, encoding="utf-8")
     return tmp_path
+
+
+def test_non_ascii_source_is_read_as_utf8(root: Path) -> None:
+    path = root / "backend" / "onyx" / "server" / "ok.py"
+    path.write_text(f'NAME = "caf\u00e9 \u65e5\u672c"\n{_BAD}', encoding="utf-8")
+    assert check_no_response_model.scan(root)["backend/onyx/server/ok.py"] == [
+        (2, "response_model= on a route")
+    ]
 
 
 def test_baseline_round_trip_passes(root: Path) -> None:
@@ -135,7 +144,7 @@ def test_new_use_in_a_clean_file_fails_naming_the_line_and_the_fix(
 ) -> None:
     baseline = root / "baseline.txt"
     check_no_response_model.write_baseline(baseline, check_no_response_model.scan(root))
-    (root / "backend" / "onyx" / "server" / "ok.py").write_text(_BAD)
+    (root / "backend" / "onyx" / "server" / "ok.py").write_text(_BAD, encoding="utf-8")
     assert check_no_response_model.check(root, baseline) == 1
     out = capsys.readouterr().out
     assert "backend/onyx/server/ok.py:1" in out
@@ -148,7 +157,9 @@ def test_new_use_in_a_baselined_file_fails(
 ) -> None:
     baseline = root / "baseline.txt"
     check_no_response_model.write_baseline(baseline, check_no_response_model.scan(root))
-    (root / "backend" / "onyx" / "server" / "legacy.py").write_text(_BAD * 3)
+    (root / "backend" / "onyx" / "server" / "legacy.py").write_text(
+        _BAD * 3, encoding="utf-8"
+    )
     assert check_no_response_model.check(root, baseline) == 1
     assert "3 uses, the baseline allows 2" in capsys.readouterr().out
 
@@ -158,7 +169,9 @@ def test_removed_use_fails_until_the_baseline_is_regenerated(
 ) -> None:
     baseline = root / "baseline.txt"
     check_no_response_model.write_baseline(baseline, check_no_response_model.scan(root))
-    (root / "backend" / "onyx" / "server" / "legacy.py").write_text(_BAD)
+    (root / "backend" / "onyx" / "server" / "legacy.py").write_text(
+        _BAD, encoding="utf-8"
+    )
     assert check_no_response_model.check(root, baseline) == 1
     assert "--write-baseline" in capsys.readouterr().out
     check_no_response_model.write_baseline(baseline, check_no_response_model.scan(root))

@@ -20,7 +20,9 @@ Usage, from any directory:
 
 import argparse
 import ast
+import io
 import re
+import tokenize
 from pathlib import Path
 
 # A deliberate exception opts out on the decorator or call, and must say why.
@@ -69,9 +71,18 @@ def _is_none(node: ast.expr) -> bool:
     return isinstance(node, ast.Constant) and node.value is None
 
 
+def _marker_comments(source: str) -> dict[int, str]:
+    """Comments that hold the marker, by line. A string literal is not a marker."""
+    return {
+        token.start[0]: token.string
+        for token in tokenize.generate_tokens(io.StringIO(source).readline)
+        if token.type == tokenize.COMMENT and ALLOW_MARKER in token.string
+    }
+
+
 def find_response_models(source: str) -> list[tuple[int, str]]:
     """One-based line and problem for each route that sets `response_model`."""
-    lines = source.splitlines()
+    markers = _marker_comments(source) if ALLOW_MARKER in source else {}
     tree = ast.parse(source)
     decorators = {
         id(decorator)
@@ -96,9 +107,9 @@ def find_response_models(source: str) -> list[tuple[int, str]]:
         if keyword is None:
             continue
         marked = [
-            line
-            for line in lines[node.lineno - 1 : node.end_lineno or node.lineno]
-            if ALLOW_MARKER in line
+            markers[line]
+            for line in range(node.lineno, (node.end_lineno or node.lineno) + 1)
+            if line in markers
         ]
         if not marked:
             found.append((keyword.lineno, "response_model= on a route"))
@@ -112,7 +123,7 @@ def scan(root: Path) -> dict[str, list[tuple[int, str]]]:
     problems: dict[str, list[tuple[int, str]]] = {}
     for directory in _SCANNED_DIRS:
         for path in sorted((root / directory).rglob("*.py")):
-            source = path.read_text()
+            source = path.read_text(encoding="utf-8")
             # Skip the parse for the many files that cannot hold a use.
             if _KEYWORD not in source:
                 continue
@@ -126,7 +137,7 @@ def read_baseline(path: Path) -> dict[str, int]:
     if not path.exists():
         return {}
     baseline: dict[str, int] = {}
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip() or line.startswith("#"):
             continue
         count, file = line.split(maxsplit=1)
@@ -136,7 +147,7 @@ def read_baseline(path: Path) -> dict[str, int]:
 
 def write_baseline(path: Path, problems: dict[str, list[tuple[int, str]]]) -> None:
     rows = [f"{len(found)} {file}\n" for file, found in sorted(problems.items())]
-    path.write_text(_BASELINE_HEADER + "".join(rows))
+    path.write_text(_BASELINE_HEADER + "".join(rows), encoding="utf-8")
 
 
 def check(root: Path, baseline_path: Path) -> int:
