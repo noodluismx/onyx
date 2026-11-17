@@ -8,7 +8,8 @@ baseline. A count that rises, or a file that is not in the baseline, fails.
 
 A direct use is one of:
   * an import of the `redis` package, including its types and exceptions
-  * an import or a call of one of this repo's Redis client accessors
+  * an import or a call of one of this repo's Redis client accessors, or an
+    import of a module that holds them
   * a Lua script call: `register_script`, `script_load`, `evalsha`, `eval`
 
 Usage, from the repo root:
@@ -19,7 +20,7 @@ Usage, from the repo root:
 
 import argparse
 import ast
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from pathlib import Path
 from typing import NamedTuple
 
@@ -64,6 +65,9 @@ _CLIENT_ACCESSORS = frozenset(
         "redis_shared_lock",
     }
 )
+# Modules that hold the accessors. `import onyx.redis.redis_pool as pool`
+# reaches every one of them through an attribute.
+_CLIENT_MODULES = frozenset({"redis_pool", "tenant_redis_client", "lock_context"})
 _LUA_METHODS = frozenset({"register_script", "script_load", "evalsha"})
 # `eval(script, numkeys, ...)` in redis-py, `eval(script, keys=, args=)` on
 # TenantRedisClient. Any other call shape is another library's `eval`.
@@ -100,6 +104,11 @@ def _is_onyx_redis(module: str) -> bool:
     return module == _ONYX_REDIS_MODULE or module.startswith(_ONYX_REDIS_MODULE + ".")
 
 
+def _holds_accessors(module: str) -> bool:
+    """`import onyx.redis` and `import onyx.redis.<client module>` bind the accessors."""
+    return module == _ONYX_REDIS_MODULE or module.split(".")[-1] in _CLIENT_MODULES
+
+
 def _is_lua_eval(call: ast.Call) -> bool:
     return len(call.args) >= _LUA_EVAL_MIN_ARGS or any(
         keyword.arg in _LUA_EVAL_KEYWORDS for keyword in call.keywords
@@ -130,9 +139,14 @@ def find_direct_redis_uses(source: str) -> list[Use]:
         if _is_redis_package(module):
             imported = f"{module}.{name}" if name else module
             uses.append(Use(line, f"import of `{imported}`"))
-        elif _is_onyx_redis(module) and name in _CLIENT_ACCESSORS:
+        elif not _is_onyx_redis(module):
+            continue
+        elif name in _CLIENT_ACCESSORS:
             accessor_locals[local] = name
             uses.append(Use(line, f"import of `{name}`"))
+        elif name in _CLIENT_MODULES or (name is None and _holds_accessors(module)):
+            imported = f"{module}.{name}" if name else module
+            uses.append(Use(line, f"import of module `{imported}`"))
 
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -159,9 +173,16 @@ def allowed_reason(relative_path: str) -> str | None:
     return None
 
 
-def scan_tree(repo_root: Path) -> dict[str, list[Use]]:
-    """Direct uses by repo-relative path, for every file that has one."""
+class Scan(NamedTuple):
+    # Direct uses by repo-relative path, for every file that has one.
+    found: dict[str, list[Use]]
+    # Files this interpreter cannot parse, such as new syntax on an old python3.
+    unparsed: list[str]
+
+
+def scan_tree(repo_root: Path) -> Scan:
     found: dict[str, list[Use]] = {}
+    unparsed: list[str] = []
     for scanned in SCANNED_DIRS:
         for path in sorted((repo_root / scanned).rglob("*.py")):
             relative = path.relative_to(repo_root).as_posix()
@@ -171,10 +192,14 @@ def scan_tree(repo_root: Path) -> dict[str, list[Use]]:
             # Every direct use contains one of these, so skip the parse without them.
             if not any(token in source for token in _SOURCE_TOKENS):
                 continue
-            uses = find_direct_redis_uses(source)
+            try:
+                uses = find_direct_redis_uses(source)
+            except SyntaxError:
+                unparsed.append(relative)
+                continue
             if uses:
                 found[relative] = uses
-    return found
+    return Scan(found, unparsed)
 
 
 def read_baseline(path: Path) -> dict[str, int]:
@@ -193,9 +218,13 @@ def format_baseline(found: dict[str, list[Use]]) -> str:
 
 
 def compare(
-    found: dict[str, list[Use]], baseline: dict[str, int]
+    found: dict[str, list[Use]],
+    baseline: dict[str, int],
+    unparsed: Collection[str] = (),
 ) -> tuple[list[str], list[str]]:
-    """Failures (a count above the baseline) and stale baseline rows (below it)."""
+    """Failures (a count above the baseline) and stale baseline rows (below it).
+
+    A file in `unparsed` has no count, so it neither fails nor goes stale."""
     failures: list[str] = []
     stale: list[str] = []
     for relative, uses in sorted(found.items()):
@@ -207,7 +236,7 @@ def compare(
             failures.extend(f"  {relative}:{use.line}: {use.what}" for use in uses)
     for relative, allowed in sorted(baseline.items()):
         current = len(found.get(relative, []))
-        if current < allowed:
+        if current < allowed and relative not in unparsed:
             stale.append(f"{relative}: baseline {allowed}, now {current}")
     return failures, stale
 
@@ -218,26 +247,41 @@ def main(argv: list[str] | None = None) -> int:
     group.add_argument(
         "--write-baseline",
         action="store_true",
-        help="record the current counts as the baseline",
+        help="record the current counts as the baseline; refuses a higher count",
     )
     group.add_argument(
         "--list", action="store_true", help="print each direct use and exit"
     )
     args = parser.parse_args(argv)
 
-    found = scan_tree(REPO_ROOT)
-    if args.write_baseline:
-        BASELINE_PATH.write_text(format_baseline(found))
-        total = sum(len(uses) for uses in found.values())
-        print(f"Wrote {total} direct Redis uses in {len(found)} files.")
-        return 0
+    found, unparsed = scan_tree(REPO_ROOT)
     if args.list:
         for relative, uses in found.items():
             for use in uses:
                 print(f"{relative}:{use.line}: {use.what}")
         return 0
 
-    failures, stale = compare(found, read_baseline(BASELINE_PATH))
+    baseline = read_baseline(BASELINE_PATH) if BASELINE_PATH.exists() else None
+    failures, stale = compare(found, baseline or {}, unparsed)
+    if args.write_baseline:
+        if unparsed:
+            print("This python3 cannot parse these files. Use the repo's Python:")
+            print("\n".join(f"  {relative}" for relative in unparsed))
+            return 1
+        # The baseline only goes down. The first write has nothing to compare.
+        if baseline is not None and failures:
+            print("The baseline cannot rise. Remove the new direct use of Redis:")
+            print("\n".join(failures))
+            print(_FIX_MESSAGE)
+            return 1
+        BASELINE_PATH.write_text(format_baseline(found))
+        total = sum(len(uses) for uses in found.values())
+        print(f"Wrote {total} direct Redis uses in {len(found)} files.")
+        return 0
+
+    if baseline is None:
+        print(f"Missing baseline: {BASELINE_PATH}")
+        return 1
     if failures:
         print("New direct use of Redis:")
         print("\n".join(failures))

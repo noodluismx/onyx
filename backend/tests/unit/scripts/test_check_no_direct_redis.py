@@ -69,6 +69,17 @@ def _whats(source: str) -> list[str]:
             ["Lua script call `eval`"],
         ),
         ("r.eval(script, 1, key, value)", ["Lua script call `eval`"]),
+        # A module import reaches every accessor through an attribute.
+        (
+            "import onyx.redis.redis_pool as pool\n"
+            "r = pool.redis_pool.get_client(tenant_id)\n",
+            ["import of module `onyx.redis.redis_pool`"],
+        ),
+        ("import onyx.redis", ["import of module `onyx.redis`"]),
+        (
+            "from onyx.redis import tenant_redis_client",
+            ["import of module `onyx.redis.tenant_redis_client`"],
+        ),
         ("sha = r.register_script(SCRIPT)", ["Lua script call `register_script`"]),
         ("r.evalsha(sha, 1, key)", ["Lua script call `evalsha`"]),
     ],
@@ -146,8 +157,9 @@ def test_scan_skips_allowed_locations_and_clean_files(tmp_path: Path) -> None:
     _write(tmp_path, "backend/onyx/server/dirty.py", _DIRECT)
     _write(tmp_path, "backend/tests/unit/test_x.py", _DIRECT)
 
-    found = check_no_direct_redis.scan_tree(tmp_path)
+    found, unparsed = check_no_direct_redis.scan_tree(tmp_path)
 
+    assert unparsed == []
     assert {path: len(uses) for path, uses in found.items()} == {
         "backend/onyx/server/dirty.py": 2
     }
@@ -214,12 +226,51 @@ def test_fix_message_names_the_cache_backend(
     assert "get_shared_cache_backend()" in output
     assert "both Redis and PostgreSQL implementations" in output
 
+    # The refresh command does not accept the new use either.
+    assert check_no_direct_redis.main(["--write-baseline"]) == 1
+    assert "The baseline cannot rise" in capsys.readouterr().out
+    assert baseline.read_text() == "# header\n"
+
+
+def test_write_baseline_lowers_counts_and_makes_the_first_baseline(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write(tmp_path, "backend/onyx/server/dirty.py", _DIRECT)
+    baseline = tmp_path / "baseline.txt"
+    monkeypatch.setattr(check_no_direct_redis, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(check_no_direct_redis, "BASELINE_PATH", baseline)
+
+    assert check_no_direct_redis.main([]) == 1
     assert check_no_direct_redis.main(["--write-baseline"]) == 0
-    capsys.readouterr()
+    assert check_no_direct_redis.read_baseline(baseline) == {
+        "backend/onyx/server/dirty.py": 2
+    }
+
+    _write(tmp_path, "backend/onyx/server/dirty.py", "x = 1\n")
+    assert check_no_direct_redis.main([]) == 1
+    assert check_no_direct_redis.main(["--write-baseline"]) == 0
+    assert check_no_direct_redis.read_baseline(baseline) == {}
     assert check_no_direct_redis.main([]) == 0
 
 
+def test_unparsed_file_keeps_its_baseline_count(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An old system python3 cannot parse new syntax. The file is not counted."""
+    _write(tmp_path, "backend/onyx/server/new_syntax.py", "import redis\ndef f(:\n")
+    baseline = tmp_path / "baseline.txt"
+    baseline.write_text("1 backend/onyx/server/new_syntax.py\n")
+    monkeypatch.setattr(check_no_direct_redis, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(check_no_direct_redis, "BASELINE_PATH", baseline)
+
+    assert check_no_direct_redis.main([]) == 0
+    assert check_no_direct_redis.main(["--write-baseline"]) == 1
+
+
 def test_current_tree_matches_the_committed_baseline() -> None:
-    found = check_no_direct_redis.scan_tree(check_no_direct_redis.REPO_ROOT)
+    found, unparsed = check_no_direct_redis.scan_tree(check_no_direct_redis.REPO_ROOT)
+    assert unparsed == []
     baseline = check_no_direct_redis.read_baseline(check_no_direct_redis.BASELINE_PATH)
     assert check_no_direct_redis.compare(found, baseline) == ([], [])
