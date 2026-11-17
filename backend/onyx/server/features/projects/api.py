@@ -7,7 +7,6 @@ from fastapi import (
     Depends,
     File,
     Form,
-    HTTPException,
     Response,
     UploadFile,
 )
@@ -163,7 +162,7 @@ def create_project(
     db_session: Session = Depends(get_session),
 ) -> UserProjectSnapshot:
     if name == "":
-        raise HTTPException(status_code=400, detail="Project name cannot be empty")
+        raise OnyxError(OnyxErrorCode.BAD_REQUEST, "Project name cannot be empty")
     _validate_project_field_length(name, "name")
     user_id = user.id
     project = UserProject(name=name, user_id=user_id)
@@ -225,9 +224,9 @@ def upload_user_files(
 
     except Exception as e:
         logger.exception("Error uploading files - %s: %s", type(e).__name__, str(e))
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to upload files. Please try again or contact support if the issue persists.",
+        raise OnyxError(
+            OnyxErrorCode.INTERNAL_ERROR,
+            "Failed to upload files. Please try again or contact support if the issue persists.",
         )
     finally:
         # Rows are committed before the indexing hand-off, which can still
@@ -248,7 +247,7 @@ def get_project(
         .one_or_none()
     )
     if project is None:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise OnyxError(OnyxErrorCode.NOT_FOUND, "Project not found")
     return UserProjectSnapshot.from_model(project)
 
 
@@ -296,7 +295,7 @@ def unlink_user_file_from_project(
         .one_or_none()
     )
     if project is None:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise OnyxError(OnyxErrorCode.NOT_FOUND, "Project not found")
 
     user_file = (
         db_session.query(UserFile)
@@ -304,7 +303,7 @@ def unlink_user_file_from_project(
         .one_or_none()
     )
     if user_file is None:
-        raise HTTPException(status_code=404, detail="File not found")
+        raise OnyxError(OnyxErrorCode.NOT_FOUND, "File not found")
 
     # Remove the association if it exists
     if user_file in project.user_files:
@@ -342,7 +341,7 @@ def link_user_file_to_project(
         .one_or_none()
     )
     if project is None:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise OnyxError(OnyxErrorCode.NOT_FOUND, "Project not found")
 
     user_file = (
         db_session.query(UserFile)
@@ -350,7 +349,7 @@ def link_user_file_to_project(
         .one_or_none()
     )
     if user_file is None:
-        raise HTTPException(status_code=404, detail="File not found")
+        raise OnyxError(OnyxErrorCode.NOT_FOUND, "File not found")
 
     if user_file not in project.user_files:
         user_file.needs_project_sync = True
@@ -385,7 +384,7 @@ def get_project_instructions(
     )
 
     if project is None:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise OnyxError(OnyxErrorCode.NOT_FOUND, "Project not found")
 
     return ProjectInstructionsResponse(instructions=project.instructions)
 
@@ -414,7 +413,7 @@ def upsert_project_instructions(
         .one_or_none()
     )
     if project is None:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise OnyxError(OnyxErrorCode.NOT_FOUND, "Project not found")
     project.instructions = body.instructions
 
     db_session.commit()
@@ -473,7 +472,7 @@ def update_project(
         .one_or_none()
     )
     if project is None:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise OnyxError(OnyxErrorCode.NOT_FOUND, "Project not found")
 
     if body.name is not None:
         _validate_project_field_length(body.name, "name")
@@ -500,7 +499,7 @@ def delete_project(
         .one_or_none()
     )
     if project is None:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise OnyxError(OnyxErrorCode.NOT_FOUND, "Project not found")
 
     # Unlink chat sessions from this project
     for chat in project.chat_sessions:
@@ -533,7 +532,7 @@ def delete_user_file(
         .one_or_none()
     )
     if user_file is None:
-        raise HTTPException(status_code=404, detail="File not found")
+        raise OnyxError(OnyxErrorCode.NOT_FOUND, "File not found")
 
     # Check associations with projects and assistants (personas)
     project_names = [project.name for project in user_file.projects]
@@ -594,7 +593,7 @@ def get_user_file(
         .one_or_none()
     )
     if user_file is None:
-        raise HTTPException(status_code=404, detail="File not found")
+        raise OnyxError(OnyxErrorCode.NOT_FOUND, "File not found")
     return UserFileSnapshot.from_model(user_file)
 
 
@@ -656,7 +655,7 @@ def remove_chat_session(
     user_id = user.id
     chat_session = get_owned_chat_session(body.chat_session_id, user_id, db_session)
     if chat_session is None:
-        raise HTTPException(status_code=404, detail="Chat session not found")
+        raise OnyxError(OnyxErrorCode.NOT_FOUND, "Chat session not found")
     chat_session.project_id = None
     db_session.commit()
     return Response(status_code=204)
@@ -675,7 +674,7 @@ def get_chat_session_project_token_count(
     user_id = user.id
     chat_session = get_owned_chat_session(chat_session_id, user_id, db_session)
     if chat_session is None:
-        raise HTTPException(status_code=404, detail="Chat session not found")
+        raise OnyxError(OnyxErrorCode.NOT_FOUND, "Chat session not found")
 
     total_tokens = get_project_token_count(
         project_id=chat_session.project_id,
@@ -701,7 +700,7 @@ def get_chat_session_project_files(
 
     chat_session = get_owned_chat_session(chat_session_id, user_id, db_session)
     if chat_session is None:
-        raise HTTPException(status_code=404, detail="Chat session not found")
+        raise OnyxError(OnyxErrorCode.NOT_FOUND, "Chat session not found")
 
     if chat_session.project_id is None:
         return []
@@ -736,7 +735,7 @@ def get_project_total_token_count(
         .one_or_none()
     )
     if project is None:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise OnyxError(OnyxErrorCode.NOT_FOUND, "Project not found")
 
     total_tokens = get_project_token_count(
         project_id=project_id,
