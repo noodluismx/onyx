@@ -13061,9 +13061,6 @@
           }
         },
         "fileReader": {
-          "charRange": {
-            "label": "caracteres {start, number}–{end, number} de {total, number}"
-          },
           "read": {
             "status": "Leu {fileName} (caracteres {start, number}–{end, number} de {total, number})"
           },

@@ -13061,9 +13061,6 @@
           }
         },
         "fileReader": {
-          "charRange": {
-            "label": "총 {total, number}자 중 {start, number}–{end, number}자"
-          },
           "read": {
             "status": "{fileName} 읽음 (총 {total, number}자 중 {start, number}–{end, number}자)"
           },
