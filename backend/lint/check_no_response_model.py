@@ -14,8 +14,8 @@ new use, and a lower count needs a regenerated baseline so the count cannot
 rise again.
 
 Usage, from any directory:
-    python3 backend/scripts/check_no_response_model.py
-    python3 backend/scripts/check_no_response_model.py --write-baseline
+    python3 backend/lint/check_no_response_model.py
+    python3 backend/lint/check_no_response_model.py --write-baseline
 """
 
 import argparse
@@ -33,7 +33,7 @@ _BASELINE_HEADER = """\
 # Uses of `response_model=` on FastAPI routes that predate the rule.
 #
 # GENERATED. Do not edit by hand. To regenerate after you remove a use:
-#   python3 backend/scripts/check_no_response_model.py --write-baseline
+#   python3 backend/lint/check_no_response_model.py --write-baseline
 #
 # Do not regenerate to admit a new use. Type the handler's return instead.
 #
@@ -167,7 +167,7 @@ def check(root: Path, baseline_path: Path) -> int:
         print("The response_model baseline is stale:")
         print("\n".join(stale))
         print(
-            "Regenerate it: python3 backend/scripts/check_no_response_model.py "
+            "Regenerate it: python3 backend/lint/check_no_response_model.py "
             "--write-baseline"
         )
     return 1 if new or stale else 0

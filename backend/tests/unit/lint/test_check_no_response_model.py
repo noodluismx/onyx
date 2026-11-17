@@ -6,7 +6,7 @@ baseline count."""
 from pathlib import Path
 
 import pytest
-from scripts import check_no_response_model
+from lint import check_no_response_model
 
 _HANDLER = "def handler() -> Model:\n    return Model()\n"
 
