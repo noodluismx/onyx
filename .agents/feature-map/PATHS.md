@@ -399,7 +399,8 @@ the admin routes and check that each has a row above, run
 | `web/src/lib/common/` | App components meant for any feature: the list states `NoResults` and `NoItems`, and `GridSearchInput`. The agents catalog is their only caller so far. Check the callers. |
 | `web/.oxlintrc.json` | Lint config for `web/`, with the design-system, layout and navigation baselines. A file in a baseline only warns. When you move a baselined file, change its path; never add a new file (`web/AGENTS.md`). |
 | `web/AGENTS.md` | Frontend standards for every agent. Read it before you work in `web/`. |
-| `backend/AGENTS.md` | Backend standards for every agent: workers, migrations, tests, errors and tracing. Read it before you work in `backend/`. |
+| `backend/AGENTS.md` | Backend standards for every agent: import boundaries, workers, migrations, tests, errors and tracing. Read it before you work in `backend/`. |
+| `.pre-commit-config.yaml` | Repo-wide commit hooks. Each hook names the script or tool that it runs. |
 | `web/bun.lock` | The `web/` dependency lockfile. `bun install` writes it; do not edit it by hand. |
 | `web/.type-coverage-baseline.yaml` | Type-coverage floor of each `web/` directory. The `typescript-check` pre-commit hook fails when a directory falls below its floor (`web/AGENTS.md`, Tests). |
 | `.github/` | CI. Read the workflow. |
