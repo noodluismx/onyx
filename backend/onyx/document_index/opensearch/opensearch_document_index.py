@@ -568,7 +568,8 @@ class OpenSearchDocumentIndex(DocumentIndex):
         current_chunks: list[DocMetadataAwareIndexChunk] = []
 
         def _flush_chunks(doc_chunks: list[DocMetadataAwareIndexChunk]) -> None:
-            assert len(doc_chunks) > 0, "doc_chunks is empty"
+            if not doc_chunks:
+                raise RuntimeError("Bug: doc_chunks is empty.")
 
             # Create a batch of OpenSearch-formatted chunks for bulk insertion.
             # Since we are doing this in batches, an error occurring midway
@@ -1404,9 +1405,8 @@ class OpenSearchIndexPair(DocumentIndex):
     def verify_and_create_index_if_necessary(self, embedding_dim: int) -> None:
         self._primary.verify_and_create_index_if_necessary(embedding_dim)
         if self._secondary is not None:
-            assert self._secondary_embedding_dim is not None, (
-                "Bug: Secondary embedding dimension is not set."
-            )
+            if self._secondary_embedding_dim is None:
+                raise RuntimeError("Bug: Secondary embedding dimension is not set.")
             self._secondary.verify_and_create_index_if_necessary(
                 self._secondary_embedding_dim
             )
