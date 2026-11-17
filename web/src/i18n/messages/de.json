@@ -13131,6 +13131,9 @@
           "reading": {
             "status": "Liest"
           },
+          "read": {
+            "label": "Gelesen"
+          },
           "header": {
             "default": "Interne Dokumente werden durchsucht",
             "doneDefault": "Interne Dokumente durchsucht",
